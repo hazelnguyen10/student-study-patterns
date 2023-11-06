@@ -1,0 +1,394 @@
+---
+title: "Hypothesis Tests of Relationship between Students' Study Patterns and their Academic Results"
+date: "`r Sys.Date()`"
+format:
+  pdf:
+  #html: 
+    embed-resources: true # Creates a single HTML file as output
+    code-fold: true # Code folding; allows you to show/hide code chunks
+    code-tools: true # Includes a menu to download the code file 
+    code-tools are particularly important if you use inline R to improve the reproducibility of your report
+table-of-contents: true # (Optional) Creates a table of contents
+number-sections: true # (Optional) Puts numbers next to heading/subheadings
+bibliography: report.bib
+---
+
+```{r setup, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(grid)
+library(gridExtra)
+```
+
+# Executive summary
+
+Exploiting collected data from a general survey across the DATA2X02 cohort of Semester 2, 2023, this report analyse and discuss certain behavioural patterns and factors that influence the students' study efficiency. Specifically, Weighted Average Mark (WAM) is chosen as the measure of learning performance, and its relationships with some potential related factors are then investigated using general data visualisation and hypothesis tests.
+
+![Figure 1.](image1.jpeg){width="400px"}
+
+# General discussion about the data
+
+## Data source
+
+The data was collected via an online survey, in particular a [Google Forms](https://edstem.org/au/courses/12173/discussion/1507949), being posted on DATA2X02's Ed platform in August 2023. Hence, the questionaire was accessible and responded by the students of DATA2X02 in Semester 2, 2023 academic year. Breaking down, this cohort has:
+
+-   $675$ students in DATA2002;
+-   $84$ students in DATA2902.
+
+![Figure 2.](image2.png){width="400px"}
+
+As having similar participants on one or some factors might skew the results of a study [@emerson2015] and the entire validity of the sampling technique is based on the use of an unbias sample [@drott1969], it is critical to evaluate the credibility of the sample before making any conclusions or inferences from it. In order words, a random sample can reduce the influence of uncontrolled factors [@emerson2015] and yield highly valid analysis results [@drott1969].
+
+Simple random sample, meanwhile, is obtained by choosing elementary units in search a way that each unit in the population has an equal chance of being selected [@mugo2002]. Based on common sense, it can be stated that this survey is collected from a random sample, as it was posted on the Ed channel which all current DATA2X02 students have access to hence each of them has equal opportunities to be included in the study. However, as this survey is not compulsory or is accounted to grades, there is no significant incentives for students to do it. This might result in the non-response bias - situations where due to non-response, certain types of survey respondents (students) are under-represented [@berg2005]. Besides, the fact that not all DATA202 students spend time checking the Ed platform/announcements thus not acknowledging about the existence of the survey might lead to convenience sampling or coverage errors - leaving certain groups of the DATA2X02 cohort.These potential, uncontrollable factors might end up make the sample not being random anymore.
+
+In conclusion, while some useful insights can still be extracted from this data set, is it importance to take into consideration that **no absolute guarantee about random sampling** can be made, or responses themselves might **not** come from a **random sample** of DATA2X02 students.
+
+![Figure 3.](image%203.png){width="400px"}
+
+## Data format and structure
+
+The responses are then stored in a Comma Speparated Values (CSV) data file with totally:
+
+```{r, warning=FALSE, message=FALSE}
+x = readr::read_csv("DATA2x02 survey (2023) (Responses) - Form responses 1.csv")
+cat(ncol(x), " columns, and ", nrow(x), " rows.\n")
+```
+
+Taking a closer look, as the first columns recorded the time stamp when the responses were submitted, the survey only consists of $43$ questions varying from multiple choice, short answer, check boxes, and drop-down including:
+
+```{r}
+column_names <- colnames(x)
+# excluding the first column which is the timestamp
+formatted_column_names <- sapply(2:length(column_names), function(i) {
+  return(paste0(i-1, ". ", column_names[i]))
+})
+cat(formatted_column_names, sep = "\n")
+```
+Hence, the collected data also varies in the types and format itself.
+
+## Potential biases
+
+According to Lecture 02, bias is any factor that favours certain outcomes or responses, or influences an individual's responses.
+
+As aforementioned, there might be some **non-response bias** as some students chose not to fill in the survey considering that this is time-consuming yet is not compulsory and there are no rewards or punishment of doing so. Besides, when it comes to the question **"What is your WAM?"**, it is possible that only students with "high" score or are confident about their academic performance chose to response. This might also leave certain groups out thus the sample might under-represent the population which also leads to a **non-response bias**.
+
+There also might be **selection/sampling bias** given that the survey was posted only on Ed Discussion without any further notification which might end up leaving out students who rarely check Ed platform. Indeed, the survey only had $312$ responses, approximately $41.11$% of the whole co-hort ($759$ students). In other words, the respondents or the sample fails to represent the population - the whole DATA2X02 cohort of Semester 2, 2023.
+
+**Measurement or designed bias** is noticeably potential due to several questions such as:
+
+-   **"How many hours a week do you spend studying?"**: Unlike working time or time spent on social media which have official tracking tools (screening time, work shifts, etc.), study time is much harder to be tracked. Having no subjective reference, the students might tend to either overestimate the time they study given this survey is released and managed by the lecturer.
+
+-   **"How often would you say you feel anxious on a daily basis?"**: The answer to this question might depend on students' mood at the moment they did the survey. For instance, if the student had a bad day or was waiting for an important event (interview, test result, etc.), they could be very nervous hence overestimate the answer. If he/she, otherwise, was completely happy on that day and had nothing to worried about, they could underestimate their answer. Thus, the responses might not yield an accurate average times of feeling anxious on a daily basis as expected.
+
+## Data shortcomings
+
+Looking at the csv file, many questions need improved to generate more useful and easily analysed data. Specifically, response validation could have been used to restrict which type of data can the respondents can input. For example:
+
+-   **"What is your gender?"**: It is obvious that gender can be classified into certain groups such as Male, Female, Transgender, etc. Hence, using a multiple choice instead of a short answer question can automatically categorised the answers, which significantly support later analysis (grouping, aggregating calculation, etc.)
+
+-   Numerical-related questions such as **"How many hours a week do you spend studying?"**, **"How old are you?"**, etc.: Restricting the response type into numeric only and adding left-bounded condition (non-negativity) can prevent cases when respondents input vague or invalid values ($0-5$, $-6$, four, etc.)
+
+In addition, some questions might need more detailed description or context-information in order to guide the question in the expected direction, for instance:
+
+-   **"What is your shoe size?"**: Given there are different shoe size systems such as US, EU, etc., this question can cause confusion to both respondents and analysts. Specifying the exact system being used would simply clarify this problem for both sides.
+
+-   **"How tall are you?"**: Similarly, as students from different countries might prefer using different units of height measurement, providing the exact expected units (ft, m, etc.) can unload a hge burden when it comes to data interpretation and analysis. Otherwise, analyst have to manual check each response and convert all of them into a common unit if wishing to use this variable.
+
+# Data wraggling
+
+The data was imported, cleaned and analysed based on the guide of [@tarr2023] using R version 4.3.1 [@R] within the Quarto environment for reproducibility. Some packages used within this report include:
+
+* The **tidyverse** suite of packages, including readr, tidyr, dplyr and ggplot2 [@tidyverse];
+
+* The **gt** package was used to present the tables [@gt];
+
+* The **grid** package was used to work with graphical objects within R [@R] and the **gridExtra** packages was used for some functions to work with "grid" graphics [@gridExtra].
+
+The document was finally compiled using the Quarto publishing system [@quarto].
+
+Firstly, the variables' names or columns's names were cleaned and shortened [@tarr2023]:
+
+```{r}
+old_names = colnames(x)
+new_names = c("timestamp","n_units","task_approach","age",
+              "life","fass_unit","fass_major","novel",
+              "library","private_health","sugar_days","rent",
+              "post_code","haircut_days","laptop_brand",
+              "urinal_position","stall_position","n_weetbix","food_budget",
+              "pineapple","living_arrangements","height","uni_travel_method",
+              "feel_anxious","study_hrs","work","social_media",
+              "gender","sleep_time","diet","random_number",
+              "steak_preference","dominant_hand","normal_advanced","exercise_hrs",
+              "employment_hrs","on_time","used_r_before","team_role",
+              "social_media_hrs","uni_year","sport","wam","shoe_size")
+# overwrite the old names with the new names:
+colnames(x) = new_names
+# combine old and new into a data frame:
+name_combo = bind_cols(New = new_names, Old = old_names)
+name_combo |> gt::gt()
+```
+
+The visdat package [@visdat] then was used to give a quick look at the missing data.
+
+```{r}
+visdat::vis_miss(x)
+```
+
+With the goal to understand the relationship of certain hehavioural patterns and external factors towards academic performance (WAM), extra cleaning steps needs to be taken at those variables for later analysis. Within the scope of this report, only four variables are investigated including:
+
+```{r}
+mydata <- x |> select(wam, feel_anxious, task_approach, team_role)
+```
+
+## Weighted Average Mark (WAM)
+
+First, a histogram can give a general distribution of the WAM.
+
+```{r, message = FALSE, warning = FALSE}
+mydata |> 
+  ggplot() + 
+  aes(x = wam, color = "coral") + 
+  geom_histogram(binwidth = 5) + 
+  labs(x = "WAM", y = "Count") + 
+  ggtitle("WAM distribution") + 
+  theme(
+    plot.title = element_text(face="bold", size=17, hjust = 0.5),
+    , legend.position = "none")
+```
+
+As can be seen, there are some noticeable outliers such as absolute ($100$), zero($0$) and abnormaly low scores. Although it is still possible to achieve such high or low WAMs, this report eliminates them for the sake of preventing any uncontrollable error, skewness in the results. For later analysis, a new column is created categorising the WAM into result based on the University of Sydney's policy. Abbreviations are used instead of full text for quicker processing and interpretation, specifically: High Distinction (HD), Distinction (D), Credit (CR), Pass (P), Fail (F).
+
+```{r}
+mydata <- mydata |> filter(wam > 25, wam != 100) |> drop_na()
+mydata$result <- ifelse(mydata$wam >= 85, "HD",
+                       ifelse(mydata$wam >= 75, "D", 
+                              ifelse(mydata$wam >= 65, "CR",
+                                     ifelse(mydata$wam >= 50, "P","F"))))
+```
+
+## Times of feeling anxious per day
+
+As this is a multiple choice question, response is restricted to certain possible values (integers from $1$ to $10$) thus there is no outliers or invalid values that need to be addressed. However, to better support later analysis, a new column is also created grouping the number of times feeling anxious on a daily basis into 3 categories. Specifically, Low ($0-3$), Medium ($4-7$), and High ($8-10$).
+
+```{r}
+mydata <- mydata |> drop_na(feel_anxious)
+mydata$anxious_level <- ifelse(mydata$feel_anxious <= 3, "Low",
+                       ifelse(mydata$feel_anxious <= 6, "Medium", "High"))
+```
+
+## Task approach
+
+Similarly, this question is also multiple choice which leaves no problem with neither outliers nor invalid values. However, to better support later analysis, the three categories are grouped into two main groups only: students who start the assignment early, and who start late.
+
+```{r}
+mydata <- mydata |> drop_na(task_approach)
+mydata$new_task_approach <- ifelse(mydata$task_approach == "do them immediately", "Start Early",
+                       ifelse(mydata$task_approach == "draw up a schedule and work through it in planned stages", "Start Early", "Start Late"))
+```
+
+## Role in a team
+
+This is also a multiple choice question. Considering the wide range of values, a new column is also created grouping the level of being active/passive within a group into 3 categories: Passive ($0-3$), Neutral ($4-6$), and Active ($7-10$).
+
+```{r}
+mydata <- mydata |> drop_na(team_role)
+mydata$new_team_role <- ifelse(mydata$team_role <= 3, "Passive",
+                       ifelse(mydata$team_role <= 6, "Neutral", "Active"))
+```
+
+# Tests and Results
+
+Having all necessary data cleaned and ready, some hypothesis tests can now be conducted.
+
+## Is the WAM independent of Anxious Level?
+
+A scatter plot is created to illustrate the distribution of WAM by the anxious level. It seems that extreme values of WAM usually happen at group with high anxious level. In other words, the higher anxious level is, the more widely spread WAM values are.
+
+```{r}
+mydata |> 
+  ggplot() +
+  aes(x = feel_anxious, y = wam, color=anxious_level) +
+  geom_point(size=2) +
+  labs(x = "Times of feeling anxious", y = "WAM", color = "Anxious level") + 
+  ggtitle("Distribution of WAM aross different anxious levels") +
+  theme(
+    plot.title = element_text(face="bold", size=17, hjust = 0.5))
+```
+
+
+To test whether WAM is independent of the number of times a student feeling anxious on a daily basis, a chi-squared test is conducted.
+```{r}
+dat1 <- xtabs(~ anxious_level + result, data = mydata)
+dat1 <- as.data.frame.matrix(dat1)
+dat1 |> gt::gt()
+```
+
+```{r}
+result <- chisq.test(dat1)
+as.data.frame(result$expected) |> gt::gt()
+```
+
+As can be seen, the three expected counts of the F (Fail) result are less than $5$ which causes the warning. Thus, it can be collapsed into the P (Pass group) before conducting the test again:
+```{r}
+dat1$P_F <- dat1$P + dat1$F
+dat1 <- dat1 |> select(HD, D, CR, P_F)
+test1 <- chisq.test(dat1, de)
+test1
+```
+**Hypothesis**:
+
+* *$H_0$*: WAM is independent of the anxious level
+* *$H_1$*: WAM is not independent of the anxious level
+
+**Assumptions**:
+
+* Independent observations;
+* $e_i= np_i \geq 5$, which is true after collapsing the columns above.
+
+**Test statistics**: $$T = \sum_{i=1}^{r} \sum_{i=1}^{c} \frac{(y_{ij} - e_{ij})^2}{e_{ij}}$$
+
+**Observed test statistic**: $t_0 = 7.09$
+
+**p-value**: $P(T\geq t_0) = P(\chi_6^2 \geq t_0) = 0.313$
+
+**Decision**: As p-value is greater than $0.05$, we do not reject the null hypothesis, or there is not enough evidence to conclude that WAM and the anxious level are dependent.
+
+## Is the WAM result of students who start assignment early higher than the ones who start late?
+Firstly, a box plot is created to illustrate the distribution of WAM of two group of students who start assignment early and late. General observation indicates that the sooner a student start their assignment, the higher average WAM they have.
+
+```{r}
+mydata$new_task_approach <- factor(mydata$new_task_approach, levels = c("Start Early", "Start Late"))
+
+mydata |> 
+  ggplot() +
+  aes(x = new_task_approach, y = wam, color = new_task_approach) +
+  geom_boxplot() +
+  geom_point(size = 1) +
+  labs(x = "Task Approach", y = "WAM", color = "Task approach") + 
+  ggtitle("Distribution of WAM of different task approaches") +
+  theme(
+    plot.title = element_text(face="bold", size=17), axis.text.x = element_blank())
+```
+Two QQ plots are then plotted to check for the normality:
+```{r}
+mydata |> 
+  ggplot() +
+  aes(sample = wam, group = new_task_approach, color="coral") +
+  geom_qq_line() + geom_qq() + 
+  labs(x = "Theoretical quantiles",
+       y = "Sample data") + 
+  ggtitle("QQ plots") +
+  theme(plot.title = element_text(face="bold", size=17, hjust = 0.5),
+        legend.position = "none") +
+  facet_wrap(~new_task_approach, nrow = 1)
+```
+As can be seen, the QQ plot of the "Start Early" group shows a relatively curvable pattern, especially for values in the smaller half. In other words, the normality assumptions are in doubt thus an alternative is needed there. In this case, Wilcoxon rank-sum test is used instead as it relaxes normality assumptions of the t-test yet have more efficient use of data and hogher power than the sign test.
+```{r}
+dat2 <- xtabs(~ new_task_approach + result, data = mydata)
+dat2 <- as.data.frame.matrix(dat2)
+dat2 |> gt::gt()
+```
+
+```{r}
+start_early = mydata$wam[mydata$new_task_approach == "Start Early"]
+start_late = mydata$wam[mydata$new_task_approach == "Start Late"]
+test2 <- wilcox.test(start_early, start_late, alternative="greater")
+test2
+```
+Let $\mu_1$ and $\mu_2$ be the population means of WAM for students who start tasks early and who start late respectively.
+
+**Hypothesis**:
+
+* *$H_0$*: $\mu_1 = \mu_2$
+* *$H_1$*: $\mu_1 > \mu_2$
+
+**Assumptions**: Two groups of observation are independent and follow the same distribution but
+differ by a shift.
+
+**Test statistics**: $W^+ = \sum_{i:D_i>0} R_i$
+
+**Observed test statistic**: $w^+ = 7918.5$
+
+**p-value**: $P(W^+ \geq w^+) = 0.003$
+
+**Decision**: As p-value is less than $0.05$, we reject the null hypothesis and conclude that the WAM of students who start their assignment early is significantly higher than their peers who start late.
+
+## Is the WAM result independent of their role in a team? (using Monte Carlo simulation)
+
+To generally illustrate the distribution of WAM across different role in a team, a boxplot and a scatter plot are created as below. It can be observed that students who is active in a team have averagely higher WAM than those who present neutral and passive. Also, extreme values of WAM often happen within the group with middle level of being active (neutral).
+
+```{r}
+mydata$new_team_role <- factor(mydata$new_team_role, levels = c("Active", "Neutral", "Passive"))
+
+p1 = mydata |> 
+  ggplot() +
+  aes(x = new_team_role, y = wam, color = new_team_role) +
+  geom_boxplot() +
+  geom_point(size=1) +
+  labs(x = "Role in Team", y = "WAM", color = "Role in team") + 
+  theme(
+    plot.title = element_text(face="bold", size=17))
+
+p2 = mydata |> 
+  ggplot() +
+  aes(x = team_role, y = wam, color = new_team_role) +
+  geom_point(size=2) +
+  labs(x = "Activeness level in team", y = "WAM") +
+  theme(
+    plot.title = element_text(face="bold", size=17, hjust = 0.5), legend.position = "none")
+
+combined_plot <- grid.arrange(p1, p2, ncol = 2, nrow = 1,
+                              top = textGrob("Distribution of WAM based on student's roles in team",gp=gpar(fontsize=17, font=2)))
+```
+
+To test whether WAM is independent of the student's active level within a group, a chi-squared test is conducted.
+
+```{r}
+dat3 <- xtabs(~ new_team_role + result, data = mydata)
+dat3 <- as.data.frame.matrix(dat3)
+dat3 |> gt::gt()
+```
+
+```{r}
+result <- chisq.test(dat3)
+as.data.frame(result$expected) |> gt::gt()
+```
+
+As can be seen, as the expected counts of values in "F" and "Passive" group is less than $5$, the assumption of Chi-squared Test is not met which might yield incorrect test result. To deal with this problem, a Monte Carlo simulation is conducted instead of normal method:
+
+```{r}
+set.seed(10)
+chisq.test(dat3, simulate.p.value = TRUE, B=10000)
+```
+**Hypothesis**:
+
+* *$H_0$*: WAM is independent of the activeness level of student in a team;
+* *$H_1$*: WAM is not independent of the activeness level
+
+**Assumptions**:
+
+* Independent observations;
+* $e_i= np_i \geq 5$, which is true.
+
+**Test statistics**: $$T = \sum_{i=1}^{r} \sum_{i=1}^{c} \frac{(y_{ij} - e_{ij})^2}{e_{ij}}$$
+
+**Observed test statistic**: $t_0 = 22.01$
+
+**p-value**: $P(T\geq t_0) = P(\chi_8^2 \geq t_0) = 0.009$
+
+**Decision**: As p-value is less than $0.05$, we reject the null hypothesis and conclude that WAM is significantly dependent on the the level of being active within a group.
+
+# Conclution
+Based on above analysis and testing, some noticeable insights about the dependence and correlation between WAM and some behaviourial patterns can be concluded:
+
+* There is not enough evidence to conclude about the dependence of WAM on the anxious level of the students.
+
+* Students who start doing assignment early have averagely higher WAM compared to their counterparts who start late.
+
+* Students who are more active when working in a team have averagely higher WAM than those who play neutral and passive role.
+
+However, it is critical to also take into consideration some limitations of the sampling process, which is discussed in Part 2, when intepreting and using those results.
+
+# Reference list
